@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
 import emoji
+import io
 
 # ---------------- Page setup ----------------
 st.set_page_config(page_title="WhatsApp Chat Analyzer — Ultra", page_icon="💬", layout="wide")
