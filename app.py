@@ -479,9 +479,9 @@ if uploaded_file:
             self.ln()
     
     
-        def generate_pdf():
-            pdf = ChatPDF()
-            pdf.add_page()
+    def generate_pdf():
+        pdf = ChatPDF()
+        pdf.add_page()
 
         # Summary
         pdf.chapter_title("Summary")
