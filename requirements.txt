@@ -1,0 +1,9 @@
+streamlit
+pandas
+matplotlib
+wordcloud
+emoji
+numpy
+fpdf2
+gradio
+regex
