@@ -453,27 +453,35 @@ if uploaded_file:
     csv = fdf.to_csv(index=False).encode("utf-8")
     st.download_button("Download filtered messages (CSV)", csv, file_name="chat_filtered.csv", mime="text/csv")
     from fpdf import FPDF
-    import io
-
+    import os
+    
     class ChatPDF(FPDF):
+        def __init__(self):
+            super().__init__()
+            # Load a Unicode-compatible font (DejaVuSans ships with most systems)
+            self.add_font("DejaVu", "", os.path.join("fonts", "DejaVuSans.ttf"), uni=True)
+            self.add_font("DejaVu", "B", os.path.join("fonts", "DejaVuSans-Bold.ttf"), uni=True)
+            self.set_font("DejaVu", "", 14)
+    
         def header(self):
-            self.set_font("Helvetica", "B", 16)
-            self.cell(0, 10, "WhatsApp Chat Report", ln=True, align="C")
+            self.set_font("DejaVu", "B", 16)
+            self.cell(0, 10, "💬 WhatsApp Chat Report", ln=True, align="C")
             self.ln(5)
-
+    
         def chapter_title(self, title):
-            self.set_font("Helvetica", "B", 14)
-            self.cell(0, 8, title, ln=True)
-            self.ln(3)
-
-        def chapter_body(self, text):
-            self.set_font("Helvetica", "", 11)
-            self.multi_cell(0, 8, text)
+            self.set_font("DejaVu", "B", 14)
+            self.cell(0, 10, title, ln=True)
             self.ln(4)
-
-    def generate_pdf():
-        pdf = ChatPDF()
-        pdf.add_page()
+    
+        def chapter_body(self, body):
+            self.set_font("DejaVu", "", 12)
+            self.multi_cell(0, 8, body)
+            self.ln()
+    
+    
+        def generate_pdf():
+            pdf = ChatPDF()
+            pdf.add_page()
 
         # Summary
         pdf.chapter_title("Summary")
