@@ -476,7 +476,7 @@ if uploaded_file:
         pdf.add_page()
 
         # Summary
-        pdf.chapter_title("📋 Summary")
+        pdf.chapter_title("Summary")
         summary_text = (
             f"Total Messages: {len(fdf)}\n"
             f"Participants: {', '.join(selected_users)}\n"
@@ -490,30 +490,30 @@ if uploaded_file:
         pdf.chapter_body(summary_text)
 
         # Top 5 users
-        pdf.chapter_title("👥 Top Participants")
+        pdf.chapter_title("Top Participants")
         top_users_text = "\n".join([f"{u}: {c} msgs" for u, c in users_counts.head(5).items()])
         pdf.chapter_body(top_users_text or "No data")
 
         # Deleted messages
-        pdf.chapter_title("🗑️ Deleted Messages")
+        pdf.chapter_title("Deleted Messages")
         pdf.chapter_body(f"Total deleted: {del_total}\n\nDeleted per user:\n" + del_by_user.to_string())
 
         # Emoji stats
         if emoji_counts_total:
-            pdf.chapter_title("😆 Top Emojis")
+            pdf.chapter_title("Top Emojis")
             top_emojis_text = " ".join([e for e, _ in emoji_counts_total.most_common(30)])
             pdf.chapter_body(top_emojis_text)
         else:
-            pdf.chapter_title("😆 Top Emojis")
+            pdf.chapter_title("Top Emojis")
             pdf.chapter_body("No emojis found.")
 
         # Common words
         if words:
-            pdf.chapter_title("🔠 Top Words")
+            pdf.chapter_title("Top Words")
             word_text = ", ".join([w for w, _ in freq[:30]])
             pdf.chapter_body(word_text)
         else:
-            pdf.chapter_title("🔠 Top Words")
+            pdf.chapter_title("Top Words")
             pdf.chapter_body("No word data available.")
 
         # Footer
