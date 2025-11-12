@@ -458,7 +458,7 @@ if uploaded_file:
     class ChatPDF(FPDF):
         def header(self):
             self.set_font("Helvetica", "B", 16)
-            self.cell(0, 10, "💬 WhatsApp Chat Report", ln=True, align="C")
+            self.cell(0, 10, "WhatsApp Chat Report", ln=True, align="C")
             self.ln(5)
 
         def chapter_title(self, title):
