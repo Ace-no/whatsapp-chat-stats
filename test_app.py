@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
 import emoji
 import io
-import zipfile  # ✅ ADDED FOR ZIP SUPPORT ONLY
+import zipfile
 import regex
 
 # ---------------- Page setup ----------------
-st.set_page_config(page_title="WhatsApp Chat Analyzer — Ultra", page_icon="💬", layout="wide")
+st.set_page_config(page_title="WhatsApp Chat Stats", page_icon="💬", layout="wide")
 st.title("💬 WhatsApp Chat Stats")
 st.caption("Upload your exported WhatsApp chat (.txt or .zip, without media).")
 
