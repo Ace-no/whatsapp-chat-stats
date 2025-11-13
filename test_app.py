@@ -575,7 +575,7 @@ st.markdown(
         opacity: 0.8;
     }
     </style>
-    <div style="text-align:center; padding: 20px; font-size: 13px; opacity:0.7;">
+    <div lass="footer">
         Whatsapp Chat Stats v0.1.2
     </div>
     """,
