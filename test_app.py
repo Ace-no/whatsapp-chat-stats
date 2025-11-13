@@ -571,7 +571,6 @@ st.markdown(
         text-align: center;
         padding: 10px;
         font-size: 13px;
-        background-color: #f0f0f0;
         opacity: 0.8;
     }
     </style>
