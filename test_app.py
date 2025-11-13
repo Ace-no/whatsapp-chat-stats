@@ -563,6 +563,18 @@ else:
     st.info("👆 Upload a WhatsApp chat export (.txt or .zip) to begin.")
 st.markdown(
     """
+    <style>
+    .footer {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        text-align: center;
+        padding: 10px;
+        font-size: 13px;
+        background-color: #f0f0f0;
+        opacity: 0.8;
+    }
+    </style>
     <div style="text-align:center; padding: 20px; font-size: 13px; opacity:0.7;">
         Whatsapp Chat Stats v0.1.2
     </div>
