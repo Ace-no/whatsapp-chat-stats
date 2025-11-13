@@ -16,6 +16,7 @@ st.set_page_config(page_title="WhatsApp Chat Stats", page_icon="💬", layout="w
 st.title("💬 WhatsApp Chat Stats")
 st.caption("Upload your exported WhatsApp chat (.txt or .zip, without media).")
 
+
 # ---------------- ZIP + TXT LOADER (ONLY NEW FEATURE) ----------------
 def load_whatsapp_data(upload):
     """Returns list of text lines from TXT or ZIP containing TXT."""
@@ -560,3 +561,11 @@ if uploaded_file and data:
 
 else:
     st.info("👆 Upload a WhatsApp chat export (.txt or .zip) to begin.")
+st.markdown(
+    """
+    <div style="text-align:center; padding: 20px; font-size: 13px; opacity:0.7;">
+        Whatsapp Chat Stats v0.1.2
+    </div>
+    """,
+    unsafe_allow_html=True
+)
