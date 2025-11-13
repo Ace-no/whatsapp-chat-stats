@@ -575,7 +575,7 @@ st.markdown(
         opacity: 0.8;
     }
     </style>
-    <div lass="footer">
+    <div class="footer">
         Whatsapp Chat Stats v0.1.2
     </div>
     """,
