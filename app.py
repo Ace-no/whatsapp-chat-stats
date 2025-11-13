@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import pandas as pd
 import numpy as np
 import re
@@ -8,13 +8,65 @@ import matplotlib.pyplot as plt
 from wordcloud import WordCloud, STOPWORDS
 import emoji
 import io
+import zipfile
+import regex
 
 # ---------------- Page setup ----------------
-st.set_page_config(page_title="WhatsApp Chat Analyzer — Ultra", page_icon="💬", layout="wide")
+st.set_page_config(page_title="WhatsApp Chat Stats", page_icon="💬", layout="wide")
 st.title("💬 WhatsApp Chat Stats")
-st.caption("Upload your exported WhatsApp chat (.txt, without media).")
+st.caption("Upload your exported WhatsApp chat (.txt or .zip, without media).")
 
-uploaded_file = st.file_uploader("Upload .txt file", type="txt")
+
+# ---------------- ZIP + TXT LOADER (ONLY NEW FEATURE) ----------------
+def load_whatsapp_data(upload):
+    """Returns list of text lines from TXT or ZIP containing TXT."""
+    if upload is None:
+        return None
+
+    raw = upload.read()
+
+    # ZIP detection by magic bytes
+    if raw[:2] == b"PK":
+        try:
+            with zipfile.ZipFile(io.BytesIO(raw), "r") as z:
+                txt_files = [f for f in z.namelist() if f.lower().endswith(".txt")]
+                if not txt_files:
+                    st.error("❌ ZIP contains no .txt file.")
+                    return None
+
+                # Use smallest / most likely chat file
+                txt_files.sort(key=lambda x: len(x))
+
+                with z.open(txt_files[0]) as f:
+                    raw_txt = f.read()
+
+                    # WhatsApp exports may be utf-8 / utf-8-sig / utf-16
+                    for enc in ["utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be"]:
+                        try:
+                            decoded = raw_txt.decode(enc)
+                            lines = decoded.splitlines()
+                            if len(lines) > 1:
+                                return lines
+                        except:
+                            pass
+                return None
+        except:
+            st.error("❌ Not a valid ZIP file.")
+            return None
+
+    # Normal TXT
+    try:
+        return raw.decode("utf-8-sig", errors="ignore").splitlines()
+    except:
+        return None
+
+# ---------------- File uploader ----------------
+uploaded_file = st.file_uploader("Upload .txt or .zip file", type=["txt", "zip"])
+data = load_whatsapp_data(uploaded_file)
+
+if uploaded_file and (data is None or len(data) == 0):
+    st.error("❌ Couldn't parse any user messages. Upload raw .txt export from WhatsApp.")
+    st.stop()
 
 # ---------------- Helpers ----------------
 def normalize(s: str) -> str:
@@ -107,9 +159,6 @@ def parse_chat(raw_lines):
         else:
             if current:
                 current.append(line)
-            else:
-                # orphan continuation without header — ignore
-                pass
     if current:
         chunks.append("\n".join(current))
 
@@ -121,7 +170,6 @@ def parse_chat(raw_lines):
         first_line = blob.split("\n", 1)[0]
         m = MSG_RE.match(first_line)
         if not m:
-            # likely a system line without sender
             if any(p in first_line for p in SYSTEM_PHRASES):
                 sys_cnt += 1
                 continue
@@ -139,8 +187,6 @@ def parse_chat(raw_lines):
         else:
             full_msg = first_msg
 
-        # Keep deleted messages (user requested)
-        # Still drop obvious system messages by content
         if any(p.lower() in full_msg.lower() for p in SYSTEM_PHRASES):
             sys_cnt += 1
             continue
@@ -155,11 +201,9 @@ def parse_chat(raw_lines):
 
 # ---------------- Message cleaning helper ----------------
 def is_real_message(msg: str) -> bool:
-    """Return True if message should count as real text content."""
     if not isinstance(msg, str):
         return False
     lowered = msg.lower()
-    # phrases to ignore
     banned = [
         "messages and calls are end-to-end encrypted",
         "your security code with",
@@ -170,19 +214,14 @@ def is_real_message(msg: str) -> bool:
         "changed to",
         "this message was edited",
     ]
-    # allow deleted ones
     return not any(p in lowered for p in banned)
 
-# -------------- Emoji utils --------------
-
-import regex 
-
+# ---------------- EMOJI ----------------
 EMOJI_PATTERN = regex.compile(r'\p{Emoji}', flags=regex.UNICODE)
 
 def extract_emojis(text: str):
     if not text:
         return []
-    # Find all emoji matches, filter out numbers and symbols
     emojis = EMOJI_PATTERN.findall(text)
     return [e for e in emojis if not regex.match(r'^[0-9#*]+$', e)]
 
@@ -192,7 +231,6 @@ def count_emojis(series: pd.Series):
         for e in extract_emojis(msg):
             counter[e] += 1
     return counter
-
 
 # -------------- Streaks --------------
 def longest_and_current_streak(dates: pd.Series):
@@ -215,7 +253,6 @@ def longest_and_current_streak(dates: pd.Series):
         longest = cur
         best_start, best_end = cur_start, days[-1]
 
-    # current streak ends at the last message day and continues backwards
     today_like = days[-1]
     cur2 = 1
     for j in range(len(days)-2, -1, -1):
@@ -226,12 +263,11 @@ def longest_and_current_streak(dates: pd.Series):
     return longest, cur2, best_start, best_end
 
 # -------------- UI + Analysis --------------
-if uploaded_file:
-    data = uploaded_file.read().decode("utf-8-sig", errors="ignore").splitlines()
+if uploaded_file and data:
     messages, unknown_cnt, sys_cnt = parse_chat(data)
 
     if not messages:
-        st.error("❌ Couldn't parse any user messages. If this is an unusual locale format, share 3–4 raw lines so we can add support.")
+        st.error("❌ Couldn't parse any user messages. If this is an unusual locale format, share 3–4 raw lines.")
         st.stop()
 
     df = pd.DataFrame(messages)
@@ -240,10 +276,8 @@ if uploaded_file:
     df["weekday"] = df["datetime"].dt.day_name()
     df["words"] = df["message"].fillna("").apply(lambda s: len(re.findall(r"\b\w+\b", s)))
     df["chars"] = df["message"].fillna("").str.len()
-        # Mark deleted messages
     df["is_deleted"] = df["message"].str.contains("|".join(map(re.escape, DELETED_PHRASES)), case=False, na=False)
 
-    # Mark system-type messages that shouldn't count for word/length/wordcloud analysis
     system_markers = [
         "Messages and calls are end-to-end encrypted",
         "Your security code with",
@@ -258,28 +292,14 @@ if uploaded_file:
 
     df["is_system"] = df["message"].str.contains("|".join(map(re.escape, system_markers)), case=False, na=False)
 
-    # ------------------------------
-    # 🔹 Create filtered analysis dataframe
-    # Exclude pure system messages, but keep deleted ones (since user wants them visible)
-    # ------------------------------
     analysis_df = df[~df["is_system"]].copy()
 
-    # From now on, 'analysis_df' will be used for:
-    #   - word counts
-    #   - emoji stats
-    #   - wordcloud
-    #   - message length trends
-    #   - activity heatmap
-    # 'df' is still kept intact for deleted-message tracking, etc.
-
-    # Sidebar filters
     st.sidebar.header("Filters")
     participants = sorted(df["sender"].unique().tolist())
     selected_users = st.sidebar.multiselect("Participants", participants, default=participants)
     date_min, date_max = df["date"].min(), df["date"].max()
     date_range = st.sidebar.date_input("Date range", value=(date_min, date_max), min_value=date_min, max_value=date_max)
 
-    # Apply filters to both dataframes consistently
     fdf = df[
         df["sender"].isin(selected_users) &
         (df["date"] >= pd.to_datetime(str(date_range[0])).date()) &
@@ -292,9 +312,10 @@ if uploaded_file:
         (analysis_df["date"] <= pd.to_datetime(str(date_range[1])).date())
     ].copy()
 
-    # ----- Top KPIs -----
+    # ---- KPIs ----
     users_counts = fdf["sender"].value_counts()
     daily_counts = fdf.groupby("date").size()
+
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Messages", int(len(fdf)))
     c2.metric("Participants", int(users_counts.size))
@@ -322,7 +343,7 @@ if uploaded_file:
 
     st.divider()
 
-    # ====== Deleted Messages Tracker ======
+    # ===== Deleted Messages =====
     st.subheader("🗑️ Deleted Messages")
     del_total = int(fdf["is_deleted"].sum())
     st.write(f"**Total Deleted Messages:** {del_total} ({del_total/len(fdf)*100:.2f}% of messages)" if len(fdf) else "**Total Deleted Messages:** 0")
@@ -339,7 +360,7 @@ if uploaded_file:
 
     st.divider()
 
-    # ====== Emoji Stats ======
+    # ===== Emoji Stats =====
     st.subheader("😆 Emoji Usage")
     emoji_counts_total = count_emojis(fdf.loc[fdf["message"].apply(is_real_message), "message"])
     if emoji_counts_total:
@@ -348,7 +369,6 @@ if uploaded_file:
         edf = pd.DataFrame(top_emojis, columns=["Emoji", "Count"])
         st.dataframe(edf, use_container_width=True)
 
-        # Per-user emoji counts (top 10 for each)
         exp = st.expander("Per-user emoji counts (top 10)", expanded=False)
         with exp:
             for user in participants:
@@ -364,13 +384,11 @@ if uploaded_file:
 
     st.divider()
 
-        # ====== Message Length Trends ======
+    # ===== Message Length Trends =====
     st.subheader("📝 Message Length Trends")
 
-    # Filter out system messages but keep deleted ones
     filtered_msgs = fdf[fdf["message"].apply(is_real_message)].copy()
 
-    # Per day averages (words & chars)
     daily_len = filtered_msgs.groupby("date").agg(
         avg_words=("words", "mean"),
         avg_chars=("chars", "mean")
@@ -384,7 +402,6 @@ if uploaded_file:
         st.write("**Average Characters per Day**")
         st.line_chart(daily_len["avg_chars"])
 
-    # Per user averages
     per_user = filtered_msgs.groupby("sender").agg(
         avg_words=("words", "mean"),
         avg_chars=("chars", "mean"),
@@ -394,12 +411,10 @@ if uploaded_file:
     st.write("**Per-User Averages**")
     st.dataframe(per_user.sort_values("msgs", ascending=False), use_container_width=True)
 
-
-    # ====== Active Hours Heatmap (Hour × DayOfWeek) ======
+    # ===== Heatmap =====
     st.subheader("🕰️ Active Hours Heatmap")
     order_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     heat = fdf.pivot_table(index="hour", columns="weekday", values="message", aggfunc="count", fill_value=0)
-    # ensure full grid
     heat = heat.reindex(range(0,24), fill_value=0)
     heat = heat.reindex(columns=order_days, fill_value=0)
 
@@ -418,7 +433,7 @@ if uploaded_file:
 
     st.divider()
 
-    # ====== Chat Streaks ======
+    # ===== Streaks =====
     st.subheader("🔥 Chat Streaks")
     longest, current, s_start, s_end = longest_and_current_streak(fdf["date"])
     if longest == 0:
@@ -431,55 +446,54 @@ if uploaded_file:
 
     st.divider()
 
-    # ====== Wordcloud & Common Words ======
+    # ===== Wordcloud =====
     st.subheader("🔠 Most Common Words")
     text = " ".join(fdf.loc[fdf["message"].apply(is_real_message), "message"].dropna()).lower()
 
     stop = set(STOPWORDS)
-    stop.update(["media", "omitted", "image", "video"])  # keep "deleted" since you want it visible
+    stop.update(["media", "omitted", "image", "video"])
+
     words = [w for w in re.findall(r"\b\w+\b", text) if w not in stop]
     if words:
         freq = Counter(words).most_common(25)
         st.dataframe(pd.DataFrame(freq, columns=["Word", "Frequency"]), use_container_width=True)
         wc = WordCloud(width=1000, height=400, background_color="white", stopwords=stop).generate(text)
-        st.image(wc.to_array(), caption="Word Cloud", use_container_width=True)
+        st.image(wc.to_array(), caption="Word Cloud", use_column_width=True)
     else:
-        st.info("No words to display (maybe mostly emojis/media).")
+        st.info("No words to display.")
 
     st.divider()
 
-    # ====== Downloads ======
+    # ===== Downloads =====
     st.subheader("⬇️ Downloads")
-    # Export filtered dataframe
     csv = fdf.to_csv(index=False).encode("utf-8")
     st.download_button("Download filtered messages (CSV)", csv, file_name="chat_filtered.csv", mime="text/csv")
+
     from fpdf import FPDF
     import os
-    
+
     class ChatPDF(FPDF):
         def __init__(self):
             super().__init__()
-            # Load a Unicode-compatible font (DejaVuSans ships with most systems)
             self.add_font("DejaVu", "", os.path.join("fonts", "DejaVuSans.ttf"), uni=True)
             self.add_font("DejaVu", "B", os.path.join("fonts", "DejaVuSans-Bold.ttf"), uni=True)
             self.set_font("DejaVu", "", 14)
-    
+
         def header(self):
             self.set_font("DejaVu", "B", 16)
             self.cell(0, 10, "💬 WhatsApp Chat Report", ln=True, align="C")
             self.ln(5)
-    
+
         def chapter_title(self, title):
             self.set_font("DejaVu", "B", 14)
             self.cell(0, 10, title, ln=True)
             self.ln(4)
-    
+
         def chapter_body(self, body):
             self.set_font("DejaVu", "", 12)
             self.multi_cell(0, 8, body)
             self.ln()
-    
-    
+
     def generate_pdf():
         pdf = ChatPDF()
         pdf.add_page()
@@ -542,7 +556,23 @@ if uploaded_file:
         mime="application/pdf"
     )
 
-    st.caption("⚠️ Uploaded files & generated reports are not stored — everything is in-memory and erased after your session ends.")
+
+    st.caption("⚠️ Uploaded files & generated reports are NOT stored — everything is in-memory.")
 
 else:
-    st.info("👆 Upload a WhatsApp chat export (.txt) to begin.")
+    st.info("👆 Upload a WhatsApp chat export (.txt or .zip) to begin.")
+st.markdown("<br><br><br><br><br><br><br>", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div style="
+        text-align:center;
+        padding: 20px 0;
+        font-size: 13px;
+        color: #666;
+        opacity: 0.8;
+    ">
+        • WhatsApp Chat Stats v0.1.2 •
+    </div>
+    """,
+    unsafe_allow_html=True
+)
