@@ -561,7 +561,7 @@ if uploaded_file and data:
 
 else:
     st.info("👆 Upload a WhatsApp chat export (.txt or .zip) to begin.")
-st.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+st.markdown("<br><br><br><br><br><br><br>", unsafe_allow_html=True)
 st.markdown(
     """
     <div style="
@@ -571,7 +571,7 @@ st.markdown(
         color: #666;
         opacity: 0.8;
     ">
-        Made with ❤️ by Ace • WhatsApp Chat Analyzer Ultra 🚀
+        Made with ❤️ by Ace • WhatsApp Chat Stats v0.1.2
     </div>
     """,
     unsafe_allow_html=True
